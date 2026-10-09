@@ -1,5 +1,6 @@
 from strands import Agent, tool
-from strands.models.llamacpp import LlamaCppModel
+
+from strands.models.ollama import OllamaModel
 from strands_tools import calculator, current_time
 
 from redisvl.extensions.cache.llm import SemanticCache
@@ -30,14 +31,11 @@ def letter_counter(word: str, letter: str) -> int:
 
 
 
-local_model = LlamaCppModel(
-    base_url="http://192.168.2.29:8080",
-    model_id="qwen3.8-27b",
-    params={
-        "max_tokens": 3000,
-        "temperature": 0.7,
-        "repeat_penalty": 1.1,
-    }
+local_model = OllamaModel(
+    host="http://localhost:11434",
+    model_id="gpt-oss:120b-cloud",
+    max_tokens=3000,
+    temperature=0.7
 )
 
 agent = Agent(

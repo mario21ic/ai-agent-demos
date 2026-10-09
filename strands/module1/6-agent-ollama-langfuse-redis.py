@@ -5,6 +5,9 @@ from strands import Agent, tool
 from strands.models.ollama import OllamaModel
 from strands_tools import calculator, current_time
 
+from redisvl.extensions.cache.llm import SemanticCache
+from redisvl.utils.vectorize import OllamaTextVectorizer
+
 from pprint import pprint
 from dotenv import load_dotenv
 
@@ -46,6 +49,19 @@ local_model = OllamaModel(
     temperature=0.7,
 )
 
+# Cache semántico en Redis: si llega una pregunta parecida a una anterior
+# (distancia coseno <= distance_threshold) se devuelve la respuesta guardada
+# sin llamar al modelo ni ejecutar las tools.
+# Requiere Redis con RediSearch (redis-stack, ver compose.yml) y Ollama local
+# con el modelo de embeddings: `ollama pull nomic-embed-text`.
+cache = SemanticCache(
+    name="agent_ollama_langfuse_cache",
+    redis_url="redis://localhost:6379",
+    distance_threshold=0.1,
+    ttl=3600,  # segundos
+    vectorizer=OllamaTextVectorizer(model="nomic-embed-text", host="http://localhost:11434"),
+)
+
 
 agent = Agent(
     system_prompt = "Eres un asistente util que response en español.",
@@ -64,17 +80,28 @@ def ask(pregunta: str, *, user_id: str, session_id: str) -> str:
         with propagate_attributes(
             user_id=user_id,
             session_id=session_id,
-            tags=["strands", "ollama"],
+            tags=["strands", "ollama", "semantic-cache"],
             metadata={
                 "model_id": local_model.get_config()["model_id"],
                 "ollama_host": os.getenv("OLLAMA_HOST", "http://localhost:11434"),
             },
             version=os.getenv("APP_VERSION", "0.1.0"),
         ):
-            result = agent(pregunta)
+            hits = cache.check(prompt=pregunta)
+            if hits:
+                print(f"[cache HIT] distancia={hits[0]['vector_distance']}")
+                respuesta = hits[0]["response"]
+                root.update(
+                    output=respuesta,
+                    metadata={"cache_hit": True, "cache_distance": hits[0]["vector_distance"]},
+                )
+                return respuesta
 
-        respuesta = str(result)
-        root.update(output=respuesta)
+            print("[cache MISS] consultando al agente...")
+            respuesta = str(agent(pregunta))
+            cache.store(prompt=pregunta, response=respuesta)
+
+        root.update(output=respuesta, metadata={"cache_hit": False})
         return respuesta
 
 

@@ -2,7 +2,7 @@ import os
 import uuid
 
 from strands import Agent, tool
-from strands.models.ollama import OllamaModel
+from strands.models.llamacpp import LlamaCppModel
 from strands_tools import calculator, current_time
 
 from pprint import pprint
@@ -39,18 +39,21 @@ def letter_counter(word: str, letter: str) -> int:
     return word.lower().count(letter.lower())
 
 
-local_model = OllamaModel(
-    host="http://localhost:11434",
-    model_id="gpt-oss:120b-cloud",
-    max_tokens=3000,
-    temperature=0.7,
-)
 
+ollama_model = LlamaCppModel(
+    base_url="http://192.168.2.29:8080",
+    model_id="qwen3.8-27b",
+    params={
+        "max_tokens": 3000,
+        "temperature": 0.7,
+        "repeat_penalty": 1.1,
+    }
+)
 
 agent = Agent(
     system_prompt = "Eres un asistente util que response en español.",
     tools=[calculator, current_time, letter_counter],
-    model=local_model,
+    model=ollama_model,
 )
 
 
@@ -66,7 +69,7 @@ def ask(pregunta: str, *, user_id: str, session_id: str) -> str:
             session_id=session_id,
             tags=["strands", "ollama"],
             metadata={
-                "model_id": local_model.get_config()["model_id"],
+                "model_id": ollama_model.get_config()["model_id"],
                 "ollama_host": os.getenv("OLLAMA_HOST", "http://localhost:11434"),
             },
             version=os.getenv("APP_VERSION", "0.1.0"),
