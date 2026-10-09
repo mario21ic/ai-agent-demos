@@ -91,8 +91,8 @@ if __name__ == "__main__":
             #"Dime acerca del protocolo MCP por Anthropic.",
             """
             Tengo 3 preguntas:
-            1. Que hora es ahora mismo?
-            2. Calcula 1024/16
+            1. Que hora es ahora mismo en Lima?
+            2. Calcula 1024/32
             3. Cuantas letras R hay en la palabra strawberry?
             """,
             user_id=os.getenv("APP_USER_ID", "mario"),
